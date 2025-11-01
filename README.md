@@ -68,6 +68,47 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Deploying to Vercel
+
+### 1. Push to GitHub
+
+First, make sure your code is pushed to a GitHub repository.
+
+### 2. Import Project to Vercel
+
+1. Go to [Vercel](https://vercel.com) and sign in
+2. Click "Add New..." → "Project"
+3. Import your GitHub repository
+4. Vercel will detect Next.js automatically
+
+### 3. Configure Environment Variables
+
+**IMPORTANT**: You must add all environment variables in Vercel before deploying:
+
+1. In the Vercel project settings, go to **Settings** → **Environment Variables**
+2. Add the following variables:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+OPENAI_API_KEY=your_openai_api_key_here
+NEXTAUTH_SECRET=your_nextauth_secret_key_here
+NEXTAUTH_URL=https://your-vercel-app.vercel.app
+```
+
+3. Make sure to set them for **Production**, **Preview**, and **Development** environments
+4. After adding all variables, **redeploy** your application
+
+**Note**: The `NEXTAUTH_URL` should be set to your Vercel deployment URL (e.g., `https://your-app-name.vercel.app`)
+
+### 4. Deploy
+
+Once environment variables are configured, Vercel will automatically deploy your application. If you need to redeploy:
+
+1. Push new changes to your GitHub repository, or
+2. Go to the Vercel dashboard → Your project → **Deployments** → Click the three dots on any deployment → **Redeploy**
+
 ## Database Schema
 
 The application uses the following tables:

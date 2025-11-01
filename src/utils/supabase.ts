@@ -1,73 +1,51 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// Lazy initialization - only validate and create client when actually used
-let _supabase: SupabaseClient | null = null
-let _supabaseAdmin: SupabaseClient | null = null
+// Get environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-function getSupabaseClient(): SupabaseClient {
-  if (_supabase) {
-    return _supabase
+// Validate environment variables and create clients
+// Only throw during build if we're not in a build-safe context
+if (!supabaseUrl && typeof window === 'undefined') {
+  // Only throw during server-side initialization if we're in production build
+  // Allow build to proceed but will fail at runtime if not set
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
+    console.warn('NEXT_PUBLIC_SUPABASE_URL is not set')
   }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl) {
-    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
-  }
-
-  if (!supabaseAnonKey) {
-    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY')
-  }
-
-  _supabase = createClient(supabaseUrl, supabaseAnonKey)
-  return _supabase
 }
 
-function getSupabaseAdminClient(): SupabaseClient {
-  if (_supabaseAdmin) {
-    return _supabaseAdmin
+if (!supabaseAnonKey && typeof window === 'undefined') {
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
+    console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set')
   }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl) {
-    throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL')
-  }
-
-  _supabaseAdmin = createClient(
-    supabaseUrl,
-    serviceRoleKey || supabaseAnonKey || ''
-  )
-  return _supabaseAdmin
 }
 
-// Export with lazy initialization - client is only created when first accessed
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(_target, prop) {
-    const client = getSupabaseClient()
-    const value = (client as any)[prop]
-    // If it's a method, bind it to the client
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    return value
-  }
-}) as SupabaseClient
+// Create Supabase client - will throw error at runtime if env vars are missing
+export const supabase: SupabaseClient = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : (() => {
+      // Return a dummy client that throws on use
+      const error = new Error('Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY')
+      return new Proxy({} as SupabaseClient, {
+        get() {
+          throw error
+        }
+      }) as SupabaseClient
+    })()
 
 // For server-side operations with elevated privileges
-export const supabaseAdmin = new Proxy({} as SupabaseClient, {
-  get(_target, prop) {
-    const client = getSupabaseAdminClient()
-    const value = (client as any)[prop]
-    // If it's a method, bind it to the client
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    return value
-  }
-}) as SupabaseClient
+export const supabaseAdmin: SupabaseClient = supabaseUrl
+  ? createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey || ''
+    )
+  : (() => {
+      const error = new Error('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL')
+      return new Proxy({} as SupabaseClient, {
+        get() {
+          throw error
+        }
+      }) as SupabaseClient
+    })()
 
 export default supabase

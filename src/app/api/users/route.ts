@@ -11,13 +11,16 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
+      console.error('Supabase error in GET /api/users:', error)
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     return NextResponse.json({ users })
   } catch (error) {
+    console.error('Error in GET /api/users:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: errorMessage, details: process.env.NODE_ENV === 'development' ? String(error) : undefined },
       { status: 500 }
     )
   }
@@ -35,13 +38,16 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
+      console.error('Supabase error in POST /api/users:', error)
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {
+    console.error('Error in POST /api/users:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: errorMessage, details: process.env.NODE_ENV === 'development' ? String(error) : undefined },
       { status: 500 }
     )
   }

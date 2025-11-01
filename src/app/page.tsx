@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ChatSidebar from '@/components/ChatSidebar'
 import ChatWindow from '@/components/ChatWindow'
 import AuthModal from '@/components/AuthModal'
 import { User, ChatRoom } from '@/types/database'
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -130,5 +130,22 @@ export default function Home() {
         onGoHome={handleGoHome}
       />
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/utils/supabase'
 import { Message } from '@/types/database'
 
@@ -15,6 +15,8 @@ type MessageWithUser = Message & {
 export function useRealtimeMessages(chatRoomId: string | null) {
   const [messages, setMessages] = useState<MessageWithUser[]>([])
   const [loading, setLoading] = useState(false)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!chatRoomId) {
@@ -38,6 +40,7 @@ export function useRealtimeMessages(chatRoomId: string | null) {
         },
         (payload) => {
           const newMessage = payload.new as Message
+          console.log('Real-time subscription: New message received', newMessage.id)
           // Fetch the complete message with user data
           fetchMessageWithUser(newMessage.id)
         }
@@ -72,12 +75,71 @@ export function useRealtimeMessages(chatRoomId: string | null) {
           setMessages((prev) => prev.filter((msg) => msg.id !== deletedMessage.id))
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Supabase subscription status:', status)
+        // Keep polling as backup even when subscribed (for reliability)
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Real-time subscription failed, relying on polling')
+          // Polling is already started, but ensure it continues
+        }
+      })
+
+    // Always poll as backup to real-time subscription
+    // This ensures messages appear even if real-time subscription is delayed or fails
+    // Polling frequency is low (2s) so it doesn't impact performance much
+    startPolling()
 
     return () => {
       subscription.unsubscribe()
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
     }
   }, [chatRoomId])
+
+  const startPolling = () => {
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+
+    // Poll for new messages every 2 seconds as fallback
+    pollingIntervalRef.current = setInterval(() => {
+      if (!chatRoomId) return
+      
+      // Fetch recent messages to check for new ones
+      fetch(`/api/messages?chatRoomId=${chatRoomId}&limit=10`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.messages && data.messages.length > 0) {
+            // Get the latest message ID from fetched messages
+            const latestMessageId = data.messages[data.messages.length - 1]?.id
+            
+            // Check if we have a new message we haven't seen
+            if (latestMessageId && latestMessageId !== lastMessageIdRef.current) {
+              console.log('Polling: New message(s) detected, fetching missing messages')
+              
+              // Check all fetched messages and add any missing ones
+              setMessages((prev) => {
+                const existingIds = new Set(prev.map(msg => msg.id))
+                const newMessages = data.messages.filter((msg: MessageWithUser) => !existingIds.has(msg.id))
+                
+                if (newMessages.length > 0) {
+                  console.log(`Polling: Found ${newMessages.length} new message(s)`)
+                  // Fetch full message details for each new message
+                  newMessages.forEach((msg: MessageWithUser) => {
+                    fetchMessageWithUser(msg.id)
+                  })
+                  lastMessageIdRef.current = latestMessageId
+                }
+                return prev
+              })
+            }
+          }
+        })
+        .catch(err => console.error('Polling error:', err))
+    }, 2000) // Poll every 2 seconds
+  }
 
   const fetchMessages = async () => {
     if (!chatRoomId) return
@@ -86,8 +148,12 @@ export function useRealtimeMessages(chatRoomId: string | null) {
     try {
       const response = await fetch(`/api/messages?chatRoomId=${chatRoomId}&limit=50`)
       if (response.ok) {
-        const { messages } = await response.json()
-        setMessages(messages)
+        const { messages: fetchedMessages } = await response.json()
+        setMessages(fetchedMessages)
+        // Update last message ID
+        if (fetchedMessages.length > 0) {
+          lastMessageIdRef.current = fetchedMessages[fetchedMessages.length - 1]?.id || null
+        }
       }
     } catch (error) {
       console.error('Error fetching messages:', error)

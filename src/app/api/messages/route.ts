@@ -69,16 +69,10 @@ export async function POST(request: NextRequest) {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', body.chat_room_id)
 
-    // Generate AI response asynchronously (fire and forget)
-    // Use setTimeout to ensure the response is sent first, then start AI generation
+    // Generate AI response (don't wait for it to complete)
     console.log('Triggering AI response for message:', body.content)
-    
-    // Ensure the main response is sent before starting AI generation
-    // This helps ensure the function doesn't terminate too early
-    setImmediate(() => {
-      generateAIResponseAsync(body.chat_room_id, body.content).catch(error => {
-        console.error('AI response generation failed:', error)
-      })
+    generateAIResponseAsync(body.chat_room_id, body.content).catch(error => {
+      console.error('AI response generation failed:', error)
     })
 
     return NextResponse.json({ message }, { status: 201 })
@@ -91,15 +85,30 @@ export async function POST(request: NextRequest) {
 }
 
 // Async function to generate and save AI response
-// This runs in the background after the main response is sent
 async function generateAIResponseAsync(chatRoomId: string, userMessage: string) {
-  const startTime = Date.now()
   try {
     console.log('Starting AI response generation for room:', chatRoomId)
     console.log('User message:', userMessage)
     
-    // Create AI assistant user if doesn't exist (do this first to avoid issues)
-    const aiUserId = '00000000-0000-0000-0000-000000000001'
+    // Get recent conversation history
+    const { data: recentMessages } = await supabase
+      .from('messages')
+      .select('content, user_id')
+      .eq('chat_room_id', chatRoomId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    console.log('Retrieved conversation history:', recentMessages?.length || 0, 'messages')
+    const conversationHistory = formatConversationHistory(recentMessages?.reverse() || [])
+    
+    // Generate AI response
+    console.log('Calling OpenAI API...')
+    const aiResponse = await generateAIResponse(userMessage, conversationHistory)
+    console.log('AI response received:', aiResponse.substring(0, 100) + '...')
+    
+    // Create AI assistant user if doesn't exist
+    console.log('Checking for AI assistant user...')
+    const aiUserId = '00000000-0000-0000-0000-000000000001' // Fixed UUID for AI
     const { data: aiUser } = await supabase
       .from('users')
       .select('id')
@@ -108,38 +117,15 @@ async function generateAIResponseAsync(chatRoomId: string, userMessage: string) 
 
     if (!aiUser) {
       console.log('Creating AI assistant user...')
-      const { error: userError } = await supabase
+      await supabase
         .from('users')
         .insert([{
           id: aiUserId,
           email: 'ai@chatapp.com',
           username: 'AI Assistant'
         }])
-      if (userError && !userError.message.includes('duplicate')) {
-        console.error('Error creating AI user:', userError)
-      }
-    }
-    
-    // Get recent conversation history (limit to 8 messages for faster processing)
-    const { data: recentMessages, error: historyError } = await supabase
-      .from('messages')
-      .select('content, user_id')
-      .eq('chat_room_id', chatRoomId)
-      .order('created_at', { ascending: false })
-      .limit(8) // Reduced from 10 for faster processing
-
-    if (historyError) {
-      console.error('Error fetching conversation history:', historyError)
     }
 
-    console.log('Retrieved conversation history:', recentMessages?.length || 0, 'messages')
-    const conversationHistory = formatConversationHistory(recentMessages?.reverse() || [])
-    
-    // Generate AI response with timeout and retry logic
-    console.log('Calling OpenAI API...')
-    const aiResponse = await generateAIResponse(userMessage, conversationHistory)
-    console.log('AI response received:', aiResponse.substring(0, 100) + '...')
-    
     // Save AI response as message
     console.log('Saving AI response to database...')
     const { data: savedMessage, error: saveError } = await supabase
@@ -159,46 +145,28 @@ async function generateAIResponseAsync(chatRoomId: string, userMessage: string) 
 
     console.log('AI message saved successfully:', savedMessage)
 
-    // Update chat room timestamp (don't await - fire and forget)
-    const duration = Date.now() - startTime
-    console.log(`AI response generation completed successfully in ${duration}ms`)
-    
-    // Update timestamp asynchronously (don't wait for it)
-    ;(async () => {
-      try {
-        await supabase
-          .from('chat_rooms')
-          .update({ updated_at: new Date().toISOString() })
-          .eq('id', chatRoomId)
-      } catch (err) {
-        console.error('Error updating chat room timestamp:', err)
-      }
-    })()
+    // Update chat room timestamp
+    await supabase
+      .from('chat_rooms')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', chatRoomId)
+
+    console.log('AI response generation completed successfully')
 
   } catch (error) {
-    const duration = Date.now() - startTime
-    console.error(`Error generating AI response after ${duration}ms:`, error)
+    console.error('Error generating AI response:', error)
     
-    // Send error message as AI response (with timeout protection)
+    // Send error message as AI response
     const aiUserId = '00000000-0000-0000-0000-000000000001'
     try {
-      const errorMessage = error instanceof Error && error.message.includes('timeout')
-        ? "I'm sorry, the request took too long. Please try again with a shorter message."
-        : "I'm sorry, I'm having trouble responding right now. Please try again."
-      
-      await Promise.race([
-        supabase
-          .from('messages')
-          .insert([{
-            content: errorMessage,
-            user_id: aiUserId,
-            chat_room_id: chatRoomId,
-            message_type: 'text'
-          }]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Fallback message timeout')), 5000)
-        )
-      ])
+      await supabase
+        .from('messages')
+        .insert([{
+          content: "I'm sorry, I'm having trouble responding right now. Please try again.",
+          user_id: aiUserId,
+          chat_room_id: chatRoomId,
+          message_type: 'text'
+        }])
     } catch (fallbackError) {
       console.error('Failed to send fallback AI message:', fallbackError)
     }

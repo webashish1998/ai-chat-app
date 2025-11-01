@@ -28,23 +28,11 @@ export default function ChatWindow({ currentUser, chatRoom, onGoHome }: ChatWind
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastUserMessageTimeRef = useRef<number | null>(null)
-
   const handleSendMessage = async (content: string) => {
     if (!chatRoom || !content.trim()) return
 
     try {
-      // Track when we sent this message
-      lastUserMessageTimeRef.current = Date.now()
-
-      // Clear any existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-
-      // Show typing indicator (it will stay until AI responds)
+      // Show typing indicator
       setIsAITyping(true)
       
       // Send message with user details for optimistic update
@@ -53,60 +41,25 @@ export default function ChatWindow({ currentUser, chatRoom, onGoHome }: ChatWind
         avatar_url: currentUser.avatar_url
       })
       
-      // Set a safety timeout as a fallback (60 seconds max)
-      // The typing indicator will be hidden earlier when AI response arrives via useEffect
-      timeoutRef.current = setTimeout(() => {
-        console.warn('AI response timeout - hiding typing indicator after 60 seconds')
+      // Hide typing indicator after 5 minutes (300000ms) as safety timeout
+      setTimeout(() => {
         setIsAITyping(false)
-        timeoutRef.current = null
-        lastUserMessageTimeRef.current = null
-      }, 60000) // 60 seconds max as safety fallback
+      }, 300000) // 5 minutes
     } catch (error) {
       console.error('Error sending message:', error)
       setIsAITyping(false)
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-      lastUserMessageTimeRef.current = null
     }
   }
 
   // Hide typing indicator when AI message arrives
   useEffect(() => {
-    if (messages.length > 0 && isAITyping && lastUserMessageTimeRef.current) {
-      // Find the most recent AI message
-      const aiMessages = messages.filter(
-        msg => msg.user_id === '00000000-0000-0000-0000-000000000001'
-      )
-      
-      if (aiMessages.length > 0) {
-        const latestAIMessage = aiMessages[aiMessages.length - 1]
-        const aiMessageTime = new Date(latestAIMessage.created_at).getTime()
-        
-        // Only hide if this AI message came after our last user message
-        if (aiMessageTime >= lastUserMessageTimeRef.current) {
-          console.log('AI message received - hiding typing indicator')
-          setIsAITyping(false)
-          // Clear the safety timeout since we got the response
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-            timeoutRef.current = null
-          }
-          lastUserMessageTimeRef.current = null
-        }
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage.user_id === '00000000-0000-0000-0000-000000000001') {
+        setIsAITyping(false)
       }
     }
-  }, [messages, isAITyping])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
-  }, [])
+  }, [messages])
 
   if (!chatRoom) {
     return (

@@ -5,43 +5,6 @@ interface ChatMessage {
   content: string
 }
 
-// Timeout helper function
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
-    )
-  ])
-}
-
-// Retry helper function
-async function retry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  delayMs: number = 1000
-): Promise<T> {
-  let lastError: Error | null = null
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.log(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message)
-      
-      if (attempt < maxRetries) {
-        // Exponential backoff
-        const waitTime = delayMs * Math.pow(2, attempt - 1)
-        console.log(`Retrying in ${waitTime}ms...`)
-        await new Promise(resolve => setTimeout(resolve, waitTime))
-      }
-    }
-  }
-  
-  throw lastError || new Error('All retry attempts failed')
-}
-
 export async function generateAIResponse(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<string> {
   try {
     const apiKey = process.env.OPENAI_API_KEY
@@ -53,7 +16,6 @@ export async function generateAIResponse(userMessage: string, conversationHistor
 
     const openai = new OpenAI({
       apiKey: apiKey,
-      timeout: 25000, // 25 second timeout (Vercel functions have 10s Hobby, 60s Pro)
     })
 
     // Prepare messages for OpenAI
@@ -71,18 +33,12 @@ export async function generateAIResponse(userMessage: string, conversationHistor
 
     console.log('Sending request to OpenAI with messages:', messages.length)
 
-    // Use retry with timeout (25 seconds max, 3 retries)
-    const completion = await retry(async () => {
-      return withTimeout(
-        openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: messages,
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
-        20000 // 20 second timeout per attempt
-      )
-    }, 3, 1000) // 3 retries with 1s initial delay
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: messages,
+      max_tokens: 500,
+      temperature: 0.7,
+    })
 
     const aiResponse = completion.choices[0]?.message?.content
 
@@ -97,17 +53,11 @@ export async function generateAIResponse(userMessage: string, conversationHistor
     
     // Fallback response based on error type
     if (error instanceof Error) {
-      if (error.message.includes('timeout') || error.message.includes('timed out')) {
-        return "I'm sorry, the request took too long. Please try again with a shorter message."
-      }
       if (error.message.includes('API key') || error.message.includes('authentication')) {
         return "I'm sorry, but I'm not properly configured to respond right now. Please check the OpenAI API key configuration."
       }
       if (error.message.includes('quota') || error.message.includes('billing')) {
         return "I'm sorry, but there seems to be an issue with the OpenAI account. Please check your billing and usage limits."
-      }
-      if (error.message.includes('rate limit')) {
-        return "I'm receiving too many requests right now. Please wait a moment and try again."
       }
     }
     

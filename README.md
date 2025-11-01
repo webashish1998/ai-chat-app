@@ -86,21 +86,32 @@ First, make sure your code is pushed to a GitHub repository.
 **IMPORTANT**: You must add all environment variables in Vercel before deploying:
 
 1. In the Vercel project settings, go to **Settings** → **Environment Variables**
-2. Add the following variables:
+2. Add the following variables one by one:
 
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-OPENAI_API_KEY=your_openai_api_key_here
-NEXTAUTH_SECRET=your_nextauth_secret_key_here
-NEXTAUTH_URL=https://your-vercel-app.vercel.app
-```
+   **Required Variables (MUST HAVE):**
+   - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL (e.g., `https://xxxxx.supabase.co`)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous/public key
 
-3. Make sure to set them for **Production**, **Preview**, and **Development** environments
-4. After adding all variables, **redeploy** your application
+   **Optional but Recommended:**
+   - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (for admin operations)
+   - `OPENAI_API_KEY` - Your OpenAI API key (for AI chat features)
+   - `NEXTAUTH_SECRET` - A random secret string (for authentication)
+   - `NEXTAUTH_URL` - Your Vercel deployment URL (e.g., `https://your-app-name.vercel.app`)
 
-**Note**: The `NEXTAUTH_URL` should be set to your Vercel deployment URL (e.g., `https://your-app-name.vercel.app`)
+3. **CRITICAL**: For each variable, select **all three environments**:
+   - ✅ Production
+   - ✅ Preview
+   - ✅ Development
+   
+   (Click on each environment checkbox when adding the variable)
+
+4. After adding all variables, go to **Deployments** tab → Find your latest deployment → Click the three dots (⋯) → Click **Redeploy**
+
+**Troubleshooting:**
+- Visit `https://your-app.vercel.app/api/health` after deployment to check if environment variables are set correctly
+- Make sure there are **no spaces** before or after the variable values
+- Make sure the variable names match **exactly** (case-sensitive)
+- After adding/updating environment variables, you **must redeploy** for changes to take effect
 
 ### 4. Deploy
 

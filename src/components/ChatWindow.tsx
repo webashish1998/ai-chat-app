@@ -219,7 +219,7 @@ export default function ChatWindow({ currentUser, chatRoom, onGoHome }: ChatWind
 
       {/* Message Input */}
       <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-        <MessageInput onSendMessage={handleSendMessage} />
+        <MessageInput onSendMessage={handleSendMessage} isProcessing={isAITyping} />
       </div>
     </div>
   )

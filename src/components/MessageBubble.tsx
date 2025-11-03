@@ -1,6 +1,7 @@
 'use client'
 
 import { Message, User } from '@/types/database'
+import MarkdownRenderer from './MarkdownRenderer'
 
 type MessageWithUser = Message & {
   user: {
@@ -65,27 +66,34 @@ export default function MessageBubble({ message, currentUser }: MessageBubblePro
           </div>
 
           {/* Message Bubble */}
-          <div className={`relative px-4 py-3 rounded-2xl shadow-sm ${
+          <div className={`relative px-5 py-4 rounded-2xl shadow-md ${
             isOwnMessage
               ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-md'
               : isAIMessage
-                ? 'bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 text-gray-900 dark:text-gray-100 border border-purple-200 dark:border-purple-800 rounded-bl-md'
+                ? 'bg-gradient-to-br from-purple-50 via-pink-50 to-purple-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-purple-900/20 text-gray-900 dark:text-gray-100 border-2 border-purple-200 dark:border-purple-700 rounded-bl-md backdrop-blur-sm'
                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-bl-md'
           }`}>
             {/* AI Badge */}
             {isAIMessage && (
-              <div className="flex items-center space-x-1 mb-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium text-purple-600 dark:text-purple-400">AI Response</span>
+              <div className="flex items-center space-x-2 mb-3 border-purple-200 dark:border-purple-700">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">AI Response</span>
+                </div>
               </div>
             )}
             
             {/* Message Text */}
-            <div className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
-              isAIMessage ? 'prose prose-sm dark:prose-invert max-w-none' : ''
-            }`}>
-              {message.content}
-            </div>
+            {isAIMessage ? (
+              <MarkdownRenderer 
+                content={message.content} 
+                className="text-sm leading-relaxed"
+              />
+            ) : (
+              <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                {message.content}
+              </div>
+            )}
 
             {/* Message Status */}
             {isOwnMessage && (

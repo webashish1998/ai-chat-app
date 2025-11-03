@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/utils/supabase'
 import { InsertMessage } from '@/types/database'
-import { generateAIResponse, formatConversationHistory } from '@/utils/openai'
+import { generateAIResponse, formatConversationHistory } from '@/utils/perplexity'
 
 // GET /api/messages - Get messages for a chat room
 export async function GET(request: NextRequest) {
@@ -102,7 +102,7 @@ async function generateAIResponseAsync(chatRoomId: string, userMessage: string) 
     const conversationHistory = formatConversationHistory(recentMessages?.reverse() || [])
     
     // Generate AI response
-    console.log('Calling OpenAI API...')
+    console.log('Calling Perplexity API...')
     const aiResponse = await generateAIResponse(userMessage, conversationHistory)
     console.log('AI response received:', aiResponse.substring(0, 100) + '...')
     

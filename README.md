@@ -1,11 +1,11 @@
 # AI Chat Application
 
-A real-time AI chat application built with Next.js, TypeScript, Tailwind CSS, Supabase, and OpenAI integration.
+A real-time AI chat application built with Next.js, TypeScript, Tailwind CSS, Supabase, with both OpenAI and Perplexity AI integrations.
 
 ## Features
 
 - 🔐 User authentication (simplified for demo)
-- 🤖 **AI-powered chat with OpenAI integration**
+- 🤖 **AI-powered chat with OpenAI & Perplexity AI integration**
 - 💬 Real-time messaging with Supabase subscriptions
 - 🏠 Create and manage AI chat rooms
 - 👥 AI chat rooms for conversations
@@ -13,6 +13,7 @@ A real-time AI chat application built with Next.js, TypeScript, Tailwind CSS, Su
 - 🔄 Real-time updates for AI responses
 - 🧠 Conversation history context for AI
 - 🎨 Modern and clean UI
+- 🔄 **Flexible AI provider switching** (OpenAI or Perplexity)
 
 ## Tech Stack
 
@@ -21,7 +22,9 @@ A real-time AI chat application built with Next.js, TypeScript, Tailwind CSS, Su
 - **Backend**: Next.js API Routes
 - **Database**: Supabase (PostgreSQL)
 - **Real-time**: Supabase Subscriptions
-- **AI**: OpenAI GPT-3.5-turbo
+- **AI Providers**: 
+  - OpenAI (GPT-3.5-turbo)
+  - Perplexity AI (Llama 3.1 Sonar) - **Currently Active**
 
 ## Setup Instructions
 
@@ -42,16 +45,36 @@ npm install
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# AI Provider - Choose one (Currently using Perplexity)
+PERPLEXITY_API_KEY=your_perplexity_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
+
 NEXTAUTH_SECRET=your_nextauth_secret_key_here
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-### 3. Set up OpenAI
+### 3. Set up AI Provider (Choose One or Both)
 
+**Option A: Perplexity AI (Currently Active)**
+1. Go to [Perplexity](https://www.perplexity.ai/settings/api) and create an account
+2. Generate an API key from the API settings
+3. Add your Perplexity API key to the `.env.local` file
+
+**Option B: OpenAI**
 1. Go to [OpenAI](https://platform.openai.com) and create an account
 2. Generate an API key from the API keys section
 3. Add your OpenAI API key to the `.env.local` file
+
+**Switching Between AI Providers:**
+To switch from Perplexity to OpenAI (or vice versa), simply update the import in `src/app/api/messages/route.ts`:
+```typescript
+// For Perplexity (current):
+import { generateAIResponse, formatConversationHistory } from '@/utils/perplexity'
+
+// For OpenAI:
+import { generateAIResponse, formatConversationHistory } from '@/utils/openai'
+```
 
 ### 4. Set up Database Schema
 
@@ -94,7 +117,8 @@ First, make sure your code is pushed to a GitHub repository.
 
    **Optional but Recommended:**
    - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (for admin operations)
-   - `OPENAI_API_KEY` - Your OpenAI API key (for AI chat features)
+   - `PERPLEXITY_API_KEY` - Your Perplexity API key (for AI chat features - currently active)
+   - `OPENAI_API_KEY` - Your OpenAI API key (alternative AI provider)
    - `NEXTAUTH_SECRET` - A random secret string (for authentication)
    - `NEXTAUTH_URL` - Your Vercel deployment URL (e.g., `https://your-app-name.vercel.app`)
 
@@ -174,6 +198,44 @@ The application uses the following tables:
 - Users can only edit/delete their own messages
 - Room admins can manage members and room settings
 
+## AI Provider Integration
+
+This project supports **both OpenAI and Perplexity AI** as AI providers:
+
+### Available AI Providers
+
+**1. Perplexity AI (Currently Active)**
+- **File**: `src/utils/perplexity.ts`
+- **Model**: `llama-3.1-sonar-small-128k-online`
+- **Features**: Real-time web search capabilities, up-to-date information
+- **Best For**: Questions requiring current information, research tasks
+
+**2. OpenAI**
+- **File**: `src/utils/openai.ts`
+- **Model**: `gpt-3.5-turbo`
+- **Features**: Conversational AI, general knowledge
+- **Best For**: General conversations, creative tasks, coding help
+
+### Switching Between Providers
+
+Both integrations are ready to use. To switch between them:
+
+1. Open `src/app/api/messages/route.ts`
+2. Change the import statement at the top:
+
+```typescript
+// Currently using Perplexity:
+import { generateAIResponse, formatConversationHistory } from '@/utils/perplexity'
+
+// To switch to OpenAI, change to:
+// import { generateAIResponse, formatConversationHistory } from '@/utils/openai'
+```
+
+3. Make sure the corresponding API key is set in your `.env.local` file
+4. Restart your development server
+
+Both providers use the same function interface, making switching seamless with zero code changes!
+
 ## Development
 
 ### Project Structure
@@ -189,6 +251,9 @@ src/
 ├── hooks/            # Custom React hooks
 ├── types/            # TypeScript type definitions
 └── utils/            # Utility functions
+    ├── openai.ts      # OpenAI integration
+    ├── perplexity.ts  # Perplexity AI integration
+    └── supabase.ts    # Supabase client
 ```
 
 ### Key Components
